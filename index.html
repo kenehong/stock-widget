@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big Tech Dashboard Widget</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0b10;--card:#12141d;--card2:#1a1d2a;--border:#252840;--text:#e0e2f0;--text2:#8890b0;--accent:#6366f1;--accent2:#818cf8;--green:#22c55e;--red:#ef4444;--yellow:#eab308;--orange:#f97316;--cyan:#06b6d4;--pink:#ec4899;--gradeA:#22c55e;--gradeB:#06b6d4;--gradeC:#eab308;--gradeD:#f97316;--gradeF:#ef4444}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+.header{background:linear-gradient(135deg,#0f0c29 0%,#1a1a4e 50%,#0f0c29 100%);padding:28px 24px 18px;border-bottom:2px solid var(--accent);text-align:center;position:relative}
+.header h1{font-size:1.8em;font-weight:800;background:linear-gradient(135deg,#c7d2fe,#818cf8,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.header p{color:var(--text2);font-size:0.85em}
+.header-meta{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:10px;flex-wrap:wrap}
+.freshness{font-size:0.72em;color:var(--text2);display:flex;align-items:center;gap:4px}
+.freshness .dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block}
+.freshness.stale .dot{background:var(--yellow)}
+.btn-sm{padding:5px 14px;border-radius:8px;font-size:0.72em;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--card2);color:var(--text2);transition:all .2s}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent2)}
+.btn-sm.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-sm.primary:hover{background:#4f46e5}
+.wrap{max-width:1400px;margin:0 auto;padding:16px 12px 60px}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* Layout: cards left + ranking right */
+.dashboard-layout{display:grid;grid-template-columns:1fr 280px;gap:20px;margin:16px 0;align-items:start}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.comp-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;transition:all .2s;cursor:pointer;position:relative;overflow:hidden}
+.comp-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px rgba(99,102,241,0.1)}
+.comp-card.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.comp-card-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.comp-ticker{font-size:1.3em;font-weight:800;color:var(--accent2)}
+.comp-name{font-size:0.78em;color:var(--text2);flex:1}
+.comp-price{text-align:right}
+.comp-price .price{font-size:1.05em;font-weight:700}
+.comp-price .mcap{font-size:0.65em;color:var(--text2)}
+.grade-badge{min-width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4em;font-weight:900;color:#fff;flex-shrink:0}
+.comp-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.comp-metric{background:var(--card2);border-radius:8px;padding:8px;text-align:center}
+.comp-metric .cm-val{font-size:0.9em;font-weight:700}
+.comp-metric .cm-label{font-size:0.6em;color:var(--text2);margin-top:2px}
+
+/* Ranking Sidebar */
+.ranking-sidebar{position:sticky;top:16px}
+.rank-section{margin-bottom:14px}
+.rank-title{font-size:0.72em;font-weight:700;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
+.rank-cards{display:flex;flex-direction:column;gap:4px}
+.rank-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px}
+.rank-medal{font-size:1.1em}
+.rank-info{flex:1;display:flex;align-items:center;gap:6px}
+.rank-info .ri-cat{display:none}
+.rank-info .ri-ticker{font-size:0.82em;font-weight:700;color:var(--accent2)}
+.rank-info .ri-val{font-size:0.68em;color:var(--text2)}
+
+/* News */
+.news-filters{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 8px;position:sticky;top:42px;z-index:40;background:var(--bg);padding:8px 0}
+.news-filter{padding:7px 16px;border-radius:20px;font-size:0.75em;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text2);transition:all .2s}
+.news-filter:hover{border-color:var(--accent);color:var(--accent2)}
+.news-filter.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.news-feed{max-width:800px;margin:0 auto}
+.news-company-section{margin-bottom:28px}
+.news-company-header{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:2px solid var(--accent);margin-bottom:16px}
+.news-company-ticker{font-size:1.4em;font-weight:900;color:var(--accent2)}
+.news-company-name{font-size:0.85em;color:var(--text2)}
+.news-company-grade{font-size:0.75em;font-weight:700;padding:3px 10px;border-radius:6px;color:#fff}
+.news-article{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:14px;transition:border-color .2s}
+.news-article:hover{border-color:var(--accent)}
+.news-article-date{font-size:0.68em;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.news-article-date::before{content:'';width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.news-article.positive .news-article-date::before{background:var(--green)}
+.news-article.negative .news-article-date::before{background:var(--red)}
+.news-article.neutral .news-article-date::before{background:var(--yellow)}
+.news-article-headline{font-size:1em;font-weight:700;color:var(--text);margin-bottom:8px;line-height:1.4}
+.news-article-detail{font-size:0.82em;color:var(--text2);line-height:1.7;margin-bottom:12px}
+.news-article-impact{display:flex;align-items:flex-start;gap:8px;font-size:0.78em;color:var(--cyan);margin-bottom:12px;padding:8px 12px;background:rgba(6,182,212,0.06);border-radius:8px}
+.news-article-impact::before{content:'Impact';font-size:0.7em;font-weight:700;background:var(--cyan);color:var(--bg);padding:2px 6px;border-radius:4px;flex-shrink:0}
+.news-easy-box{background:var(--card2);border-radius:12px;padding:14px 16px;font-size:0.82em;color:var(--text);line-height:1.7;border-left:3px solid var(--yellow);margin-bottom:10px}
+.news-easy-label{font-size:0.68em;font-weight:700;color:var(--yellow);margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.news-source{font-size:0.68em;margin-top:8px}
+.news-source a{color:var(--cyan);text-decoration:none;border-bottom:1px dashed rgba(6,182,212,0.3)}
+.news-source a:hover{border-bottom-color:var(--cyan)}
+
+/* API Settings */
+.api-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin:16px 0;display:none}
+.api-panel.visible{display:block}
+.api-panel h3{font-size:0.9em;color:var(--accent2);margin-bottom:10px}
+.api-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.api-input{flex:1;min-width:200px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:0.82em;outline:none}
+.api-input:focus{border-color:var(--accent)}
+.api-note{font-size:0.68em;color:var(--text2);margin-top:8px}
+.api-note a{color:var(--cyan)}
+
+/* Detail Modal */
+.dm-desc{font-size:0.68em;color:var(--text2);margin-top:2px;font-weight:400;line-height:1.4}
+.detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;padding:20px}
+.detail-overlay.visible{display:flex}
+.detail-modal{background:var(--card);border:1px solid var(--border);border-radius:16px;max-width:700px;width:100%;max-height:85vh;overflow-y:auto;padding:24px}
+.detail-close{float:right;background:none;border:none;color:var(--text2);font-size:1.5em;cursor:pointer}
+.detail-close:hover{color:var(--text)}
+.detail-head{display:flex;align-items:center;gap:16px;margin-bottom:20px}
+.detail-ticker{font-size:1.8em;font-weight:900;color:var(--accent2)}
+.detail-name{font-size:0.9em;color:var(--text2)}
+.detail-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px}
+.dm-item{display:flex;flex-direction:column;padding:10px 12px;background:var(--card2);border-radius:8px}
+.dm-top{display:flex;justify-content:space-between;align-items:center}
+.dm-label{font-size:0.78em;color:var(--text2)}
+.dm-value{font-size:0.85em;font-weight:700}
+.dm-grade{display:inline-block;padding:1px 6px;border-radius:4px;font-size:0.7em;font-weight:700;margin-left:6px}
+
+/* Chart */
+.chart-container{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin:16px 0}
+.chart-container canvas{max-height:350px}
+
+/* Loading */
+.loading{text-align:center;padding:40px;color:var(--text2)}
+.spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.disclaimer{text-align:center;font-size:0.65em;color:var(--text2);margin-top:30px;opacity:0.5;padding:0 20px}
+@media(max-width:1100px){
+.dashboard-layout{grid-template-columns:1fr}
+.ranking-sidebar{position:static;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+}
+@media(max-width:768px){
+.cards-grid{grid-template-columns:1fr}
+.comp-metrics{grid-template-columns:repeat(2,1fr)}
+.detail-metrics{grid-template-columns:1fr}
+.header h1{font-size:1.4em}
+.ranking-sidebar{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>Big Tech Dashboard</h1>
+<p>MAG7 + AMD 재무 지표 한눈에 비교</p>
+<div class="header-meta">
+<div class="freshness" id="freshness"><span class="dot"></span> <span id="freshnessText">2026-02-21 기준</span></div>
+<button class="btn-sm" onclick="toggleApi()">API 설정</button>
+<button class="btn-sm primary" id="btnRefresh" onclick="refreshData()" style="display:none">데이터 새로고침</button>
+</div>
+</div>
+
+<div class="wrap">
+<div class="api-panel" id="apiPanel">
+<h3>Financial Modeling Prep API 연동</h3>
+<div class="api-row">
+<input class="api-input" id="apiKey" type="password" placeholder="FMP API Key 입력..." value="">
+<button class="btn-sm primary" onclick="saveApiKey()">저장</button>
+<button class="btn-sm" onclick="testApi()">테스트</button>
+</div>
+<div class="api-note">무료 API 키 발급: <a href="https://financialmodelingprep.com/developer" target="_blank">financialmodelingprep.com</a> (일 250건 무료)</div>
+<div id="apiStatus" style="font-size:0.72em;margin-top:6px"></div>
+</div>
+
+<!-- Dashboard -->
+<div class="dashboard-layout">
+<div class="cards-grid" id="cardsGrid"></div>
+<div class="ranking-sidebar" id="rankingContent"></div>
+</div>
+
+<div class="disclaimer">이 대시보드는 교육 목적이며, 투자 조언이 아닙니다. 데이터는 2026년 2월 기준 공개 재무제표를 기반으로 합니다.</div>
+</div>
+
+<!-- Detail Modal -->
+<div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+<div class="detail-modal" id="detailModal"></div>
+</div>
+
+<script>
+// ==================== DATA ====================
+const DATA = {
+  AAPL: {
+    name:'Apple', sector:'bigtech', price:264.58, mcap:'3.88T',
+    pe:33.56, fpe:30.73, ps:8.92, peg:2.90, evebitda:25.05,
+    revgrowth:10.07, epsgrowth:22.7,
+    gm:47.33, om:32.38,
+    fcf:123320, ocf:135470, ni:117780,
+    revenue:'$435.6B'
+  },
+  MSFT: {
+    name:'Microsoft', sector:'bigtech', price:397.23, mcap:'2.95T',
+    pe:24.86, fpe:22.63, ps:9.66, peg:1.58, evebitda:17.02,
+    revgrowth:16.67, epsgrowth:28.85,
+    gm:68.59, om:46.67,
+    fcf:77410, ocf:160510, ni:119260,
+    revenue:'$305.5B'
+  },
+  GOOGL: {
+    name:'Alphabet', sector:'bigtech', price:314.98, mcap:'3.81T',
+    pe:29.16, fpe:27.25, ps:9.46, peg:1.76, evebitda:24.97,
+    revgrowth:15.09, epsgrowth:34.45,
+    gm:59.65, om:32.03,
+    fcf:73270, ocf:164710, ni:132170,
+    revenue:'$402.8B'
+  },
+  AMZN: {
+    name:'Amazon', sector:'bigtech', price:210.11, mcap:'2.26T',
+    pe:29.30, fpe:27.21, ps:3.15, peg:1.57, evebitda:15.86,
+    revgrowth:12.38, epsgrowth:29.66,
+    gm:50.29, om:11.16,
+    fcf:7700, ocf:139510, ni:77670,
+    revenue:'$716.9B'
+  },
+  NVDA: {
+    name:'NVIDIA', sector:'semiconductor', price:189.82, mcap:'4.61T',
+    pe:46.75, fpe:26.25, ps:24.92, peg:0.68, evebitda:39.60,
+    revgrowth:114, epsgrowth:147,
+    gm:74.99, om:62.42,
+    fcf:60850, ocf:64090, ni:72880,
+    revenue:'$130.5B'
+  },
+  META: {
+    name:'Meta', sector:'bigtech', price:650, mcap:'1.63T',
+    pe:27.90, fpe:22.34, ps:8.19, peg:1.06, evebitda:16.00,
+    revgrowth:22.17, epsgrowth:11.43,
+    gm:82, om:41,
+    fcf:43590, ocf:115800, ni:60460,
+    revenue:'$201.0B'
+  },
+  TSLA: {
+    name:'Tesla', sector:'hardware', price:411, mcap:'1.40T',
+    pe:348.91, fpe:201.74, ps:15.15, peg:4.84, evebitda:127.84,
+    revgrowth:-2.93, epsgrowth:-47.06,
+    gm:18.03, om:5.1,
+    fcf:6220, ocf:14750, ni:3790,
+    revenue:'$94.8B'
+  },
+  AMD: {
+    name:'AMD', sector:'semiconductor', price:116, mcap:'0.19T',
+    pe:77.92, fpe:30.57, ps:9.79, peg:0.63, evebitda:48.19,
+    revgrowth:34, epsgrowth:165,
+    gm:50, om:10.7,
+    fcf:5400, ocf:6500, ni:4300,
+    revenue:'$34.6B'
+  }
+};
+
+const NEWS = {
+  AAPL: [
+    { date:'2026-01-29', sentiment:'positive', headline:'Q1 2026 사상 최대 분기 매출 $1,438억 달성', detail:'분기 매출 $1,438억(전년비 16%↑), EPS $2.84(19%↑). iPhone 매출 $853억(23%↑)으로 모든 지역에서 역대 최고 기록. 중국 매출 38% 급증($255억). 서비스 매출도 사상 최고 $300억 돌파.', impact:'아이폰16 판매 호조와 중국 시장 회복 확인. 애널리스트 목표가 $292~$350.', easy:'애플은 아이폰을 만드는 회사예요. 이번에 아이폰이 역대 가장 많이 팔렸어요! 특히 중국에서도 엄청 인기가 많았대요. 마치 학교 매점에서 가장 맛있는 빵이 하루 만에 다 팔린 것처럼요.', source:'https://www.apple.com/newsroom/2026/01/apple-reports-first-quarter-results/', sourceLabel:'Apple Newsroom' },
+    { date:'2026-02-12', sentiment:'positive', headline:'Siri 2.0 AI 대폭 업그레이드 & 구글 Gemini 파트너십 확정', detail:'2026년 중 Siri를 AI 기반으로 대폭 업그레이드 재확인. 구글 Gemini 모델 활용 다년 계약 체결(연간 약 $10억). 화면 인식, 개인 맥락 이해, 앱 간 작업 수행 기능 추가 예정. 다만 출시 지연(iOS 26.4→26.5 또는 iOS 27) 가능성은 리스크.', impact:'AI 시대 뒤처진다는 우려 해소 가능한 핵심 전략. 출시 시점은 불확실.', easy:'시리는 아이폰에 있는 말하는 도우미예요. 지금은 좀 답답한데, 구글의 똑똑한 AI 두뇌를 빌려와서 훨씬 똑똑하게 만들 거래요. 선생님이 더 잘 가르치는 다른 선생님한테 도움을 받는 것과 비슷해요!', source:'https://www.macrumors.com/2026/02/12/siri-ios-26-launch-confirmed-apple/', sourceLabel:'MacRumors' },
+    { date:'2026-02', sentiment:'positive', headline:'전 세계 활성 기기 25억 대 돌파', detail:'애플 활성 기기가 전 세계 25억 대 돌파. 주당 $0.26 배당금 발표(2월 12일 지급). 거대한 설치 기반은 서비스 매출 성장의 기반.', impact:'3명 중 1명이 애플 제품 사용. 서비스 매출(사상 최고 $300억) 장기 성장 기반.', easy:'전 세계에서 25억 개의 애플 기기(아이폰, 아이패드, 맥북 등)가 사용되고 있어요. 전 세계 인구가 80억 명이니까, 3명 중 1명 정도가 애플 제품을 쓰고 있는 거예요!', source:'https://capital.com/en-int/market-updates/apple-stock-forecast-20-02-2026', sourceLabel:'Capital.com' }
+  ],
+  MSFT: [
+    { date:'2026-01-28', sentiment:'negative', headline:'FY26 Q2 실적 상회에도 주가 7~10% 급락', detail:'매출 $812.7억(예상 $802.7억 상회), EPS $4.14(예상 $3.97 상회). 하지만 Azure 성장률 39%로 전 분기 40%에서 소폭 둔화. 설비투자 66% 급증($375억). 시간외 7~10% 급락, 시가총액 $3,570억 증발.', impact:'실적 자체는 좋았으나 Azure 둔화+설비투자 급증이 투자자 우려 자극.', easy:'마이크로소프트는 시험에서 100점 맞았는데, 선생님이 기대한 건 105점이었어요. 그래서 다들 "음, 조금 아쉽네" 하고 실망한 거예요. 게다가 용돈을 너무 많이 쓸 계획이라 걱정도 됐고요.', source:'https://www.cnbc.com/2026/01/28/microsoft-msft-q2-earnings-report-2026.html', sourceLabel:'CNBC' },
+    { date:'2026-02', sentiment:'positive', headline:'OpenAI 파트너십 재구조화 — 지분 27%, 매출 20% 수취', detail:'OpenAI 영리 기업(PBC) 전환 완료. MS 지분 약 $1,350억(27%). Azure 서비스 추가 구매 $2,500억 계약. 2032년까지 OpenAI 전체 매출 20% 수취. OpenAI는 다른 클라우드도 사용 가능해짐.', impact:'장기적 수익 확보는 긍정적이나, 독점적 클라우드 공급자 지위 상실은 우려.', easy:'마이크로소프트와 OpenAI(ChatGPT 만든 회사)는 절친이에요. 이번에 계약을 다시 했는데, "너희가 버는 돈의 20%를 내가 받을게" 하고 약속했어요. 대신 OpenAI는 다른 친구들과도 놀 수 있게 됐어요.', source:'https://openai.com/index/next-chapter-of-microsoft-openai-partnership/', sourceLabel:'OpenAI Blog' },
+    { date:'2026-01', sentiment:'positive', headline:'클라우드 매출 분기 $500억 최초 돌파', detail:'마이크로소프트 클라우드 매출이 분기 $500억 최초 돌파. Anthropic과의 딜도 Azure 비즈니스 재편 중. AI 수요 덕분에 클라우드 고성장 지속.', impact:'클라우드 시장 지배력 유지 마일스톤. AI 기반 수요가 핵심 동력.', easy:'클라우드는 다른 회사들이 컴퓨터를 빌려 쓰는 서비스예요. 마이크로소프트의 클라우드 매출이 한 분기에 500억 달러를 처음 넘었어요. 마치 도서관에서 책을 빌려주는데 너무 많은 사람이 와서 대출료만 어마어마하게 모인 것과 같아요.', source:'https://www.geekwire.com/2026/microsoft-beats-expectations-cloud-tops-50b-as-openai-and-anthropic-deals-reshape-its-business/', sourceLabel:'GeekWire' }
+  ],
+  GOOGL: [
+    { date:'2026-02-04', sentiment:'negative', headline:'Q4 2025 매출·이익 상회, 하지만 CapEx 폭탄에 주가 10% 하락', detail:'매출 $1,138억(예상 $1,114억 상회), EPS $2.82(예상 $2.61 상회). 전년비 매출 18%↑, 순이익 30%↑($344.6억). 클라우드 매출 $176.6억(예상 대폭 상회). 하지만 2026년 설비투자 $1,750~1,850억 가이던스에 주가 10% 하락.', impact:'실적은 강력했으나 AI 설비투자 규모(전년비 2배+)가 수익성 우려 촉발.', easy:'구글은 검색도 하고 유튜브도 운영하는 회사예요. 돈을 아주 많이 벌었는데, 앞으로 AI를 위해 돈을 어마어마하게 쓸 거라고 했어요. 마치 가게가 장사가 잘 됐는데 "더 큰 가게를 짓겠다!"고 하니까 사람들이 "너무 많이 쓰는 거 아냐?" 하고 걱정한 거예요.', source:'https://www.cnbc.com/2026/02/04/alphabet-googl-q4-2025-earnings.html', sourceLabel:'CNBC' },
+    { date:'2026-02-19', sentiment:'positive', headline:'Gemini 3.1 Pro 출시 — 추론 성능 2배↑, 월간 사용자 7.5억 명', detail:'ARC-AGI-2 벤치마크 77.1% 달성(이전 3 Pro 대비 추론 성능 2배↑). Gemini 앱 MAU 7.5억 명 돌파. Lyria 3 음악 생성 모델도 Gemini 앱에 베타 출시.', impact:'AI 기술적 우위 입증. 검색 매출 16.7% 성장은 AI 통합 검색 수익화 성공 증명.', easy:'구글이 "제미나이"라는 AI를 더 똑똑하게 만들었어요. 수학 문제를 전보다 2배나 더 잘 풀 수 있게 됐대요. 매달 7억5천만 명이 쓰고 있어서, 학교 전체 학생 중 거의 다가 쓰는 것처럼 인기가 엄청나요!', source:'https://techcrunch.com/2026/02/19/googles-new-gemini-pro-model-has-record-benchmark-scores-again/', sourceLabel:'TechCrunch' },
+    { date:'2026-02', sentiment:'neutral', headline:'2026년 AI 설비투자 $1,750~1,850억 계획 — 역대급 규모', detail:'2025년 대비 2배 이상 증가. Google DeepMind AI 컴퓨팅 역량 확대와 클라우드 고객 수요 충족 목적. 투자자들은 수익성 우려를 표시하나, 구글은 장기적 AI 시장 지배력 확보에 필수적이라는 입장.', impact:'단기적 주가 하락 요인이지만, 장기 AI 인프라 경쟁에서의 포지셔닝은 긍정적.', easy:'구글이 "우리 AI 공장을 엄~청 크게 짓겠다!"고 했어요. 무려 250조 원이나 쓸 거래요. 투자자들은 "그 돈 다 벌 수 있을까?" 하고 걱정하지만, 구글은 "더 많이 투자해야 더 많이 벌 수 있다"고 생각하는 거예요.', source:'https://seekingalpha.com/news/4554096-google-unveils-gemini-31-pro-in-latest-update-to-flagship-ai-model', sourceLabel:'Seeking Alpha' }
+  ],
+  AMZN: [
+    { date:'2026-02-05', sentiment:'negative', headline:'Q4 매출 상회에도 $2,000억 CapEx 계획에 주가 8% 급락', detail:'매출 $2,133.9억(예상 $2,113.3억 상회), EPS $1.95(예상 $1.97 소폭 하회). AWS 매출 $355.8억(24% 성장, 13분기 만 최고). 하지만 2026년 설비투자 $2,000억 계획 발표로 주가 8% 급락.', impact:'AWS 성장 긍정적이나, 역대급 설비투자가 수익성 우려를 키움.', easy:'아마존은 인터넷 가게도 하고, 다른 회사에 컴퓨터를 빌려주는 사업(AWS)도 해요. 둘 다 잘했는데, "AI를 위해 200조 원을 쓰겠다!"고 하니까 사람들이 깜짝 놀란 거예요. 용돈 모아서 장난감 가게를 사겠다고 한 것처럼요!', source:'https://www.cnbc.com/2026/02/05/amazon-amzn-q4-earnings-report-2025.html', sourceLabel:'CNBC' },
+    { date:'2026-02-04', sentiment:'positive', headline:'Alexa+ 미국 전역 출시 — 프라임 회원 무료, 수천만 명 사용', detail:'AI 기반 Alexa+를 미국 전역 출시. 월 $19.99(프라임 무료). Ticketmaster, Uber, OpenTable 등 연동. 수천만 명 사용, 대화량 2~3배 증가. 현재 복잡한 질의는 Anthropic Claude가 처리.', impact:'AI 비서 시장에서 선점. 프라임 생태계 강화로 구독 수익 강화.', easy:'아마존의 알렉사는 집에 있는 말하는 스피커예요. 이제 더 똑똑해져서 "오늘 저녁 맛집 예약해줘", "우버 불러줘" 같은 것도 할 수 있어요. 마치 집에 뭐든 해주는 똑똑한 비서가 생긴 것과 같아요!', source:'https://techcrunch.com/2026/02/04/alexa-amazons-ai-assistant-is-now-available-to-everyone-in-the-u-s/', sourceLabel:'TechCrunch' },
+    { date:'2026-02', sentiment:'neutral', headline:'OpenAI에 최대 $500억 투자 협상 중', detail:'아마존이 OpenAI에 최대 $500억 투자 논의 중. OpenAI 모델이 Alexa와 내부 프로젝트에 활용될 가능성. 현재는 Anthropic Claude가 Alexa+ 복잡 질의 처리.', impact:'AI 파트너십 다변화로 기술 경쟁력 강화 가능, 대규모 투자 수익성 우려 병존.', easy:'아마존이 ChatGPT를 만든 회사(OpenAI)에 돈을 투자하려고 해요. 그러면 아마존의 AI도 더 똑똑해질 수 있거든요. 마치 공부 잘하는 친구네 학원에도 같이 다니려는 것과 비슷해요!', source:'https://www.cnbc.com/2026/02/04/open-ai-alexa-amazon-investment.html', sourceLabel:'CNBC' }
+  ],
+  NVDA: [
+    { date:'2026-01-27', sentiment:'negative', headline:'DeepSeek 쇼크 — 하루 -17%, 역대 최대 $5,890억 시총 증발', detail:'중국 AI 스타트업 DeepSeek이 $560만에 학습한 AI 모델 공개(GPT-4는 $1억+). 엔비디아 주가 17% 폭락, 하루 시총 $5,890억 증발(미국 역사상 최대). Broadcom -17%, AMD -6% 등 반도체주 동반 하락. 이후 "효율적 AI = 더 많은 칩 수요" 논리로 빠르게 반등.', impact:'AI 칩 수요 우려 촉발 후 해소. 장기적으로 효율적 AI가 더 많은 컴퓨팅 수요를 만든다는 시각 우세.', easy:'엔비디아는 AI 두뇌 칩을 만드는 회사예요. 중국 회사가 "우리는 적은 칩으로도 AI를 잘 만들었다!"고 해서 "그러면 칩이 덜 팔리겠네?" 하고 사람들이 놀라서 주가가 뚝 떨어졌어요. 그런데 며칠 뒤 "아니야, AI가 더 많아지면 칩은 더 필요해!"라고 다시 생각해서 주가가 올랐어요.', source:'https://finance.yahoo.com/news/nvidia-stock-plummets-loses-record-589-billion-as-deepseek-prompts-questions-over-ai-spending-135105824.html', sourceLabel:'Yahoo Finance' },
+    { date:'2026-01', sentiment:'positive', headline:'CES 2026 — 젠슨 황 "AI 수요 미친 수준(insane)"', detail:'젠슨 황 CEO가 CES 2026 기조연설에서 AI 컴퓨팅 수요를 "insane(미친 수준)"이라 표현. Blackwell 플랫폼 수요 "차트를 벗어남". 구글·아마존·메타·MS 모두 2026년 AI 설비투자 대폭 확대 발표.', impact:'빅테크 AI 투자 급증 = 엔비디아 칩 수요 직결. 매우 긍정적.', easy:'엔비디아 사장님이 큰 행사에서 "요즘 우리 칩 주문이 미친 듯이 들어온다!"고 했어요. 구글, 아마존, 메타 같은 큰 회사들이 다 AI를 위해 엔비디아 칩을 엄청나게 사고 있거든요. 마치 크리스마스 전에 장난감 공장에 주문이 폭주하는 것과 같아요!', source:'https://www.fool.com/investing/2026/02/17/nvda-stock-earnings-when-q4-earnings-date/', sourceLabel:'Motley Fool' },
+    { date:'2026-02-25', sentiment:'neutral', headline:'Q4 실적 발표 예정 (2/25) — 월가 기대감 최고조', detail:'2월 25일 장 마감 후 FY2026 Q4 실적 발표 예정. 애널리스트 FY2026 전체 EPS $4.69(전년비 57%↑), FY2027 Q1 매출 $707억 전망. AI 섹터 전체 분위기를 좌우할 핵심 이벤트.', impact:'빅테크 실적 시즌 최대 이벤트. 결과에 따라 AI 섹터 전체 방향 결정.', easy:'2월 25일에 엔비디아 성적표가 나와요. 모든 사람이 "엔비디아가 얼마나 잘했을까?" 하고 기다리고 있어요. 마치 반에서 1등하는 친구의 시험 결과를 기다리는 것처럼, 엔비디아 결과에 따라 다른 주식들도 같이 움직일 거예요!', source:'https://www.fool.com/investing/2026/02/17/nvda-stock-earnings-when-q4-earnings-date/', sourceLabel:'Motley Fool' }
+  ],
+  META: [
+    { date:'2026-01-28', sentiment:'negative', headline:'Q4 실적 대폭 상회 후 급등→급락 — CapEx $1,150~1,350억 우려', detail:'매출 $599억(예상 $584억 상회), EPS $8.88(예상 $8.16 상회). 시간외 9.7% 급등($738). 하지만 1주 만에 10% 하락 — 2026년 설비투자 $1,150~1,350억 계획이 수익성 우려를 키움.', impact:'실적 자체는 강력했으나, AI 지출 계획(180조 원)이 단기 주가 부담.', easy:'메타는 인스타그램과 페이스북을 만든 회사예요. 성적표가 아주 좋게 나와서 처음에 다들 "와!" 했는데, "AI에 돈을 180조 원이나 쓸 거야"라고 하니까 "너무 많이 쓰는 거 아니야?" 하고 걱정해서 주가가 다시 내려갔어요.', source:'https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-Reports-Fourth-Quarter-and-Full-Year-2025-Results/default.aspx', sourceLabel:'Meta Investor Relations' },
+    { date:'2026-02', sentiment:'positive', headline:'Llama 4 Behemoth (2조 파라미터) 연구 프리뷰 공개', detail:'GPU 150만대+(NVIDIA Blackwell B200/GB200 주력)로 2조 파라미터 MoE 모델 "Behemoth" 연구 프리뷰 공개. 완전 공개 시 오픈소스 최초 모든 과학·수학 벤치마크 "전문가 수준" 추론 달성 목표. 30인 스타트업 Arcee AI가 400B Trinity 모델로 경쟁 도전.', impact:'오픈소스 AI 리더십 유지. 개발자 생태계 확보로 장기적 광고 사업 강화 기반.', easy:'메타가 엄~청 똑똑한 AI를 만들고 있어요. "Behemoth(거대한 괴물)"라는 이름인데, 누구나 무료로 쓸 수 있게 공개할 거래요. 마치 세상에서 가장 좋은 백과사전을 무료로 나눠주는 것과 같아요!', source:'https://markets.financialcontent.com/stocks/article/tokenring-2026-2-5-the-open-source-revolution-how-metas-llama-series-erased-the-proprietary-ai-advantage', sourceLabel:'FinancialContent' },
+    { date:'2026-01', sentiment:'neutral', headline:'저커버그 "개인 초지능(personal superintelligence)" 비전 선언', detail:'저커버그 CEO가 "2026년에 전 세계 사람들을 위한 개인 초지능을 발전시키겠다"고 선언. Q1 2026 매출 가이던스 $535~565억 제시. 총 비용 $1,620~1,690억 예상.', impact:'AI 장기 비전은 긍정적이나, 막대한 지출 계획이 투자자 신뢰에 단기 부담.', easy:'저커버그 아저씨가 "모든 사람에게 슈퍼 똑똑한 AI 친구를 만들어 주겠다!"고 약속했어요. 정말 멋진 꿈이지만, 그 꿈을 이루려면 어마어마한 돈이 들어서 어른들이 좀 걱정하고 있어요.', source:'https://markets.financialcontent.com/stocks/article/marketminute-2026-2-18-meta-defies-ai-skepticism-record-q4-revenue-and-aggressive-2026-scaling-set-a-new-standard', sourceLabel:'MarketMinute' }
+  ],
+  TSLA: [
+    { date:'2026-01-28', sentiment:'negative', headline:'테슬라 역사상 첫 연간 매출 감소 기록', detail:'Q4 EPS $0.50(예상 $0.45 상회), 매출 $249억(예상 상회). 하지만 2025년 연간 매출 3% 감소로 테슬라 역사상 첫 연간 매출 하락. Q4 자동차 매출 $177억(전년비 11%↓). 연초 대비 약 9% 하락($404).', impact:'분기 실적은 예상 상회했으나, 연간 매출 첫 감소가 성장 스토리에 타격.', easy:'테슬라는 전기차를 만드는 회사예요. 이번 분기는 잘했지만, 1년 전체로 보면 처음으로 매출이 줄었어요. 마치 한 달 시험은 잘 봤는데, 1년 성적은 떨어진 것과 비슷해요.', source:'https://www.cnbc.com/2026/01/28/tesla-tsla-2025-q4-earnings.html', sourceLabel:'CNBC' },
+    { date:'2026-01-28', sentiment:'positive', headline:'로보택시 9개 도시 확장 + Model S/X 단종 → 옵티머스 로봇 전환', detail:'2026년 상반기 로보택시를 달라스, 휴스턴, 피닉스, 마이애미 등 9개 도시로 확장 계획. 일부 주행에서 안전 모니터 없이 완전 자율주행 시작. Model S/X 생산 중단 — 프리몬트 공장을 옵티머스 로봇 생산으로 전환. 다만 8개월간 14건 사고, 19% 가용성 등 현실적 과제 존재.', impact:'로보택시 확장은 미래 성장 핵심. 로봇 전환은 자동차→AI/로봇 회사로의 전략적 피봇.', easy:'테슬라가 운전사 없이 혼자 다니는 택시를 미국 9개 도시에서 운영하겠대요! 또 오래된 차 모델은 더 이상 안 만들고, 대신 그 공장에서 로봇을 만들 거래요. 마치 연필 만들던 공장에서 이제 AI 로봇을 만드는 것처럼 완전히 바뀌는 거예요!', source:'https://www.teslarati.com/tesla-confirms-robotaxi-expansion-plans-new-cities-aggressive-timeline/', sourceLabel:'Teslarati' },
+    { date:'2026-02', sentiment:'neutral', headline:'옵티머스 휴머노이드 로봇 — 자동차에서 AI 로봇 회사로 전환', detail:'머스크가 Model S/X 생산 라인을 옵티머스 로봇 생산으로 전환 발표. 테슬라가 단순 자동차 회사에서 AI/로봇 회사로의 전략적 전환을 명확히 보여줌. 로봇·AI가 장기 밸류에이션의 핵심.', impact:'장기적 사업 모델 전환의 성패가 주가 방향 결정. 현재 P/E 349x는 이 기대를 반영.', easy:'테슬라가 이제 사람처럼 생긴 로봇 "옵티머스"를 본격적으로 만들 거래요. 자동차 만들던 공장을 로봇 공장으로 바꿔요. 마치 장난감 만들던 회사가 "이제 진짜 로봇을 만들겠다!"고 선언한 것과 같아요!', source:'https://electrek.co/2026/02/16/tesla-robotaxi-status-check-8-months-in/', sourceLabel:'Electrek' }
+  ],
+  AMD: [
+    { date:'2026-02-03', sentiment:'positive', headline:'Q4 사상 최대 매출 $103억 · EPS $1.53 달성', detail:'분기 매출 $103억(사상 최대), Non-GAAP EPS $1.53(사상 최대). 연간 매출 $346억(사상 최대). 데이터센터 80%↑(MI300 AI GPU 수요). Q1 2026 가이던스: 매출 $98억(전년비 32%↑).', impact:'실적은 강력하나, 엔비디아 대비 AI GPU 시장 점유율이 여전히 작아 시장 반응 제한적.', easy:'AMD는 컴퓨터 칩을 만드는 회사예요. 역대 가장 많은 돈을 벌었어요! 특히 AI용 칩이 엄청 잘 팔렸대요. 마치 반에서 2등하는 친구가 이번에 역대 최고 점수를 받은 것과 같아요!', source:'https://ir.amd.com/news-events/press-releases/detail/1276/amd-reports-fourth-quarter-and-full-year-2025-financial-results', sourceLabel:'AMD IR' },
+    { date:'2026-01', sentiment:'positive', headline:'CES 2026 — MI400/MI500, Helios 랙으로 엔비디아 정면 도전', detail:'리사 수 CEO가 차세대 AI 칩 로드맵 공개. MI400(2026년), MI500(MI300X 대비 AI 성능 1,000배 목표). Helios 랙 시스템은 72개 MI455X 탑재, 엔비디아 NVL72와 직접 경쟁. 100개+ 기업이 MI300X 개발/배포 중.', impact:'엔비디아 독점에 도전하는 야심찬 로드맵. 성공 시 AI 칩 시장 점유율 확대.', easy:'AMD가 큰 기술 박람회에서 "앞으로 1000배 더 빠른 AI 칩을 만들겠다!"고 발표했어요. 또 엔비디아의 칩과 1대1로 경쟁하는 거대한 시스템도 보여줬어요. 마치 2등이 "이제 나도 1등을 이길 수 있어!"라고 선언한 것과 같아요!', source:'https://finance.yahoo.com/news/amd-reveals-new-ai-pc-chips-details-next-gen-data-center-chips-at-ces-2026-041117636.html', sourceLabel:'Yahoo Finance' },
+    { date:'2026-01-27', sentiment:'negative', headline:'DeepSeek 충격 동반 하락 -6%, 이후 빠르게 회복', detail:'DeepSeek발 충격으로 AMD 주가도 6%+ 하락. 하지만 "효율적 AI = 더 많은 칩 수요" 논리로 반도체 섹터 전반 회복. AMD 데이터센터 GPU 매출 계속 성장세. 엔비디아(-17%)보다 낙폭 작음.', impact:'센티먼트 악화는 동일했으나 빠른 회복으로 시장 신뢰 유지.', easy:'엔비디아가 크게 떨어질 때 AMD도 같이 떨어졌어요. 같은 반 친구니까요. 하지만 AMD는 엔비디아보다 덜 떨어졌고, 금방 다시 올라왔어요. "우리도 좋은 AI 칩 있어!" 하고 보여줬거든요.', source:'https://finance.yahoo.com/news/nvidia-stock-plummets-loses-record-589-billion-as-deepseek-prompts-questions-over-ai-spending-135105824.html', sourceLabel:'Yahoo Finance' }
+  ]
+};
+
+// Grading logic (same as analyzer)
+const BENCHMARKS = {
+  bigtech: {
+    pe:{bp:[25,33,42,55],hib:false}, fpe:{bp:[22,28,36,48],hib:false},
+    ps:{bp:[7,10,14,20],hib:false}, peg:{bp:[1.0,1.5,2.5,3.5],hib:false},
+    evebitda:{bp:[20,26,33,45],hib:false},
+    revgrowth:{bp:[25,15,8,3],hib:true}, epsgrowth:{bp:[25,15,8,0],hib:true},
+    gm:{bp:[72,58,45,30],hib:true}, om:{bp:[38,28,18,8],hib:true}
+  },
+  semiconductor: {
+    pe:{bp:[25,35,48,60],hib:false}, fpe:{bp:[20,26,35,45],hib:false},
+    ps:{bp:[6,10,15,22],hib:false}, peg:{bp:[0.8,1.2,2.0,3.0],hib:false},
+    evebitda:{bp:[20,28,35,48],hib:false},
+    revgrowth:{bp:[35,20,10,3],hib:true}, epsgrowth:{bp:[35,20,10,0],hib:true},
+    gm:{bp:[60,48,38,25],hib:true}, om:{bp:[40,28,18,8],hib:true}
+  },
+  hardware: {
+    pe:{bp:[15,20,28,38],hib:false}, fpe:{bp:[12,18,24,35],hib:false},
+    ps:{bp:[2,3,5,8],hib:false}, peg:{bp:[1.0,1.5,2.2,3.0],hib:false},
+    evebitda:{bp:[10,14,20,30],hib:false},
+    revgrowth:{bp:[18,10,5,0],hib:true}, epsgrowth:{bp:[20,12,5,0],hib:true},
+    gm:{bp:[35,25,15,8],hib:true}, om:{bp:[18,12,7,2],hib:true}
+  }
+};
+
+const GC = {A:'var(--gradeA)',B:'var(--gradeB)',C:'var(--gradeC)',D:'var(--gradeD)',F:'var(--gradeF)'};
+const GB = {A:'rgba(34,197,94,0.2)',B:'rgba(6,182,212,0.2)',C:'rgba(234,179,8,0.15)',D:'rgba(249,115,22,0.15)',F:'rgba(239,68,68,0.15)'};
+const GS = {A:4,B:3,C:2,D:1,F:0};
+
+function grade(v,bp,hib){
+  if(v==null||isNaN(v))return null;
+  if(hib){return v>=bp[0]?'A':v>=bp[1]?'B':v>=bp[2]?'C':v>=bp[3]?'D':'F'}
+  return v<=bp[0]?'A':v<=bp[1]?'B':v<=bp[2]?'C':v<=bp[3]?'D':'F';
+}
+function avgG(gs){
+  const v=gs.filter(g=>g!=null);if(!v.length)return null;
+  const a=v.reduce((s,g)=>s+GS[g],0)/v.length;
+  return a>=3.5?'A':a>=2.5?'B':a>=1.5?'C':a>=0.5?'D':'F';
+}
+
+function analyzeCompany(d){
+  const b=BENCHMARKS[d.sector]||BENCHMARKS.bigtech;
+  const g={
+    pe:grade(d.pe,b.pe.bp,b.pe.hib), fpe:grade(d.fpe,b.fpe.bp,b.fpe.hib),
+    ps:grade(d.ps,b.ps.bp,b.ps.hib), peg:grade(d.peg,b.peg.bp,b.peg.hib),
+    evebitda:grade(d.evebitda,b.evebitda.bp,b.evebitda.hib),
+    revgrowth:grade(d.revgrowth,b.revgrowth.bp,b.revgrowth.hib),
+    epsgrowth:grade(d.epsgrowth,b.epsgrowth.bp,b.epsgrowth.hib),
+    gm:grade(d.gm,b.gm.bp,b.gm.hib), om:grade(d.om,b.om.bp,b.om.hib)
+  };
+  const s1=avgG([g.pe,g.fpe,g.ps,g.peg,g.evebitda]);
+  const s2=avgG([g.revgrowth,g.epsgrowth]);
+  const s3=avgG([g.gm,g.om]);
+  let g_fcfq=null;
+  if(d.ocf&&d.ni&&d.ni>0){const r=d.ocf/d.ni;g_fcfq=r>=1.2?'A':r>=1.05?'B':r>=0.85?'C':r>=0.65?'D':'F'}
+  let g_fcfp=null;
+  if(d.fcf!=null){g_fcfp=d.fcf>0?(d.ocf&&d.fcf/d.ocf>0.6?'A':d.fcf/(d.ocf||1)>0.4?'B':'C'):'F'}
+  const s4=avgG([g_fcfq,g_fcfp]);
+  const steps=[s1,s2,s3,s4];
+  const w=[0.25,0.30,0.20,0.25];
+  let tw=0,ts=0;
+  steps.forEach((s,i)=>{if(s){ts+=GS[s]*w[i];tw+=w[i]}});
+  const os=tw>0?ts/tw:0;
+  const overall=os>=3.5?'A':os>=2.5?'B':os>=1.5?'C':os>=0.5?'D':'F';
+  return{grades:g,steps:{val:s1,growth:s2,profit:s3,cashflow:s4},overall,score:os};
+}
+
+// ==================== RENDER ====================
+let analyses={};
+const TICKERS=Object.keys(DATA);
+
+// ==================== METRIC TIPS ====================
+const MTIP={
+  pe:{name:'P/E (주가수익비율)',desc:'주가가 1년 이익의 몇 배인지. 낮을수록 "싸다"는 의미.',analogy:'사과가게를 살 때, 1년 이익이 100만원인데 가격이 2000만원이면 P/E는 20배. "20년 치 이익 값"인 셈.'},
+  fpe:{name:'Forward P/E (예상 P/E)',desc:'미래 예상 이익 기준 P/E. 현재보다 낮으면 이익이 늘어날 것으로 예상.',analogy:'지금은 비싸 보여도, 내년에 돈을 더 벌면 실제론 싸질 수 있어요.'},
+  ps:{name:'P/S (주가매출비율)',desc:'시가총액 ÷ 연간 매출. 아직 이익이 없는 성장 기업에 유용.',analogy:'가게 가격이 연매출의 몇 배인지. 매출 1억 가게를 10억에 사면 P/S=10배.'},
+  peg:{name:'PEG (성장 대비 P/E)',desc:'P/E ÷ 이익성장률. 1 이하면 "성장에 비해 싸다", 2 이상이면 "비싸다".',analogy:'P/E가 높아도 이익이 빨리 늘면 괜찮아요. PEG는 "성장 속도 대비 가격"을 보는 지표.'},
+  evebitda:{name:'EV/EBITDA (기업가치배수)',desc:'기업 전체 가치(부채 포함) ÷ 세전영업이익. 기업 인수 시 많이 쓰는 지표.',analogy:'빚까지 포함해서 이 회사를 통째로 사려면, 벌어들이는 이익의 몇 년치를 내야 하는지.'},
+  revgrowth:{name:'매출 성장률',desc:'전년 대비 매출이 얼마나 늘었는지(%). 높을수록 사업이 빠르게 커지는 중.',analogy:'작년에 100만원 벌었는데 올해 120만원 벌면 성장률 20%. 가게가 얼마나 빨리 커지는지 보는 것.'},
+  epsgrowth:{name:'EPS 성장률',desc:'주당순이익이 전년보다 얼마나 늘었는지(%). 주주에게 돌아가는 이익 성장.',analogy:'주식 1주가 벌어다 주는 이익이 얼마나 더 늘었는지. 이게 꾸준히 올라야 주가도 올라요.'},
+  gm:{name:'Gross Margin (매출총이익률)',desc:'(매출-원가)÷매출. 제품/서비스의 기본 수익성.',analogy:'1000원짜리 빵을 만드는 데 재료비가 400원이면 GM=60%. 재료비 빼고 남는 비율.'},
+  om:{name:'Op. Margin (영업이익률)',desc:'영업이익÷매출. 인건비·임대료 등 모든 운영비를 뺀 후 남는 비율.',analogy:'매출에서 재료비+직원월급+임대료 다 빼고 남는 이익 비율. 회사의 "실제 장사 실력".'},
+  fcf:{name:'FCF (잉여현금흐름)',desc:'영업현금흐름에서 설비투자를 뺀 금액. 회사가 자유롭게 쓸 수 있는 현금.',analogy:'월급에서 꼭 내야 할 것(월세, 공과금) 다 빼고 통장에 남는 돈. 이게 많아야 배당도 주고 투자도 해요.'},
+  ocf:{name:'OCF (영업현금흐름)',desc:'실제 영업활동으로 들어온 현금. 순이익보다 더 정직한 수익 지표.',analogy:'장부상 이익이 아니라, 실제로 통장에 입금된 돈. 이게 순이익보다 많으면 "현금 부자".'},
+  ni:{name:'Net Income (순이익)',desc:'모든 비용과 세금을 뺀 후 최종 남은 이익.',analogy:'가게 매출에서 재료비, 직원 월급, 세금 등 전부 빼고 "진짜 남은 돈".'}
+};
+
+function init(){
+  TICKERS.forEach(t=>{analyses[t]=analyzeCompany(DATA[t])});
+  renderCards();renderRankings();
+  const k=localStorage.getItem('fmp_api_key');
+  if(k){document.getElementById('apiKey').value=k;document.getElementById('btnRefresh').style.display='inline-block'}
+}
+
+function renderCards(){
+  const sorted=[...TICKERS].sort((a,b)=>analyses[b].score-analyses[a].score);
+  document.getElementById('cardsGrid').innerHTML=sorted.map(t=>{
+    const d=DATA[t],a=analyses[t],o=a.overall;
+    return `<div class="comp-card" onclick="openDetail('${t}')">
+      <div class="comp-card-head">
+        <div class="grade-badge" style="background:${GC[o]}">${o}</div>
+        <div>
+          <div class="comp-ticker">${t}</div>
+          <div class="comp-name">${d.name} <span style="color:var(--text2);font-size:0.85em">${d.sector}</span></div>
+        </div>
+        <div class="comp-price">
+          <div class="price">$${d.price}</div>
+          <div class="mcap">${d.mcap}</div>
+        </div>
+      </div>
+      <div class="comp-metrics">
+        <div class="comp-metric"><div class="cm-val" style="color:${GC[a.grades.pe]||'var(--text)'}">${d.pe}x</div><div class="cm-label">P/E</div></div>
+        <div class="comp-metric"><div class="cm-val" style="color:${d.revgrowth>=0?'var(--green)':'var(--red)'}">${d.revgrowth>0?'+':''}${d.revgrowth}%</div><div class="cm-label">매출성장</div></div>
+        <div class="comp-metric"><div class="cm-val" style="color:${GC[a.grades.gm]||'var(--text)'}">${d.gm}%</div><div class="cm-label">GM</div></div>
+        <div class="comp-metric"><div class="cm-val" style="color:${GC[a.grades.peg]||'var(--text)'}">${d.peg}x</div><div class="cm-label">PEG</div></div>
+        <div class="comp-metric"><div class="cm-val" style="color:${d.epsgrowth>=0?'var(--green)':'var(--red)'}">${d.epsgrowth>0?'+':''}${d.epsgrowth}%</div><div class="cm-label">EPS성장</div></div>
+        <div class="comp-metric"><div class="cm-val" style="color:${GC[a.grades.om]||'var(--text)'}">${d.om}%</div><div class="cm-label">OP Margin</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderRankings(){
+  const cats=[
+    {label:'밸류에이션 최고 (가장 저렴)',key:'val',icon:'1'},
+    {label:'성장성 최고',key:'growth',icon:'2'},
+    {label:'수익성 최고',key:'profit',icon:'3'},
+    {label:'현금흐름 최고',key:'cashflow',icon:'4'},
+    {label:'종합 최고',key:'overall',icon:'5'}
+  ];
+  const medals=['&#129351;','&#129352;','&#129353;'];
+  let html='';
+  cats.forEach(cat=>{
+    const sorted=[...TICKERS].sort((a,b)=>{
+      const ga=cat.key==='overall'?analyses[a].score:GS[analyses[a].steps[cat.key]]||0;
+      const gb=cat.key==='overall'?analyses[b].score:GS[analyses[b].steps[cat.key]]||0;
+      return gb-ga;
+    });
+    html+=`<div class="rank-section"><div class="rank-title">${cat.label}</div><div class="rank-cards">`;
+    sorted.slice(0,3).forEach((t,i)=>{
+      const d=DATA[t],a=analyses[t];
+      const g=cat.key==='overall'?a.overall:a.steps[cat.key];
+      html+=`<div class="rank-card">
+        <div class="rank-medal">${medals[i]}</div>
+        <div class="rank-info">
+          <div class="ri-cat">${d.name}</div>
+          <div class="ri-ticker">${t}</div>
+          <div class="ri-val">등급: <span style="color:${GC[g]};font-weight:700">${g}</span></div>
+        </div>
+      </div>`;
+    });
+    html+='</div></div>';
+  });
+  document.getElementById('rankingContent').innerHTML=html;
+}
+
+// (news moved to detail modal)
+
+function getComputedColor(g){return{A:'#22c55e',B:'#06b6d4',C:'#eab308',D:'#f97316',F:'#ef4444'}[g]||'#666'}
+
+function openDetail(t){
+  const d=DATA[t],a=analyses[t];
+  const metrics=[
+    {l:'P/E',k:'pe',v:d.pe+'x',g:a.grades.pe},{l:'Forward P/E',k:'fpe',v:d.fpe+'x',g:a.grades.fpe},
+    {l:'P/S',k:'ps',v:d.ps+'x',g:a.grades.ps},{l:'PEG',k:'peg',v:d.peg+'x',g:a.grades.peg},
+    {l:'EV/EBITDA',k:'evebitda',v:d.evebitda+'x',g:a.grades.evebitda},
+    {l:'매출 성장률',k:'revgrowth',v:(d.revgrowth>0?'+':'')+d.revgrowth+'%',g:a.grades.revgrowth},
+    {l:'EPS 성장률',k:'epsgrowth',v:(d.epsgrowth>0?'+':'')+d.epsgrowth+'%',g:a.grades.epsgrowth},
+    {l:'Gross Margin',k:'gm',v:d.gm+'%',g:a.grades.gm},
+    {l:'Op. Margin',k:'om',v:d.om+'%',g:a.grades.om},
+    {l:'FCF',k:'fcf',v:'$'+(d.fcf/1000).toFixed(1)+'B',g:null},
+    {l:'OCF',k:'ocf',v:'$'+(d.ocf/1000).toFixed(1)+'B',g:null},
+    {l:'Net Income',k:'ni',v:'$'+(d.ni/1000).toFixed(1)+'B',g:null},
+  ];
+  const stepLabels=['밸류에이션','성장','수익성','현금흐름'];
+  const stepKeys=['val','growth','profit','cashflow'];
+  document.getElementById('detailModal').innerHTML=`
+    <button class="detail-close" onclick="closeDetail()">&times;</button>
+    <div class="detail-head">
+      <div class="grade-badge" style="background:${GC[a.overall]};width:56px;height:56px;font-size:1.8em;border-radius:14px">${a.overall}</div>
+      <div>
+        <div class="detail-ticker">${t}</div>
+        <div class="detail-name">${d.name} | ${d.revenue} | $${d.price} | ${d.mcap}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      ${stepKeys.map((k,i)=>{const g=a.steps[k];return`<div style="flex:1;min-width:80px;text-align:center;padding:10px;background:${g?GB[g]:'var(--card2)'};border-radius:10px">
+        <div style="font-size:0.65em;color:var(--text2)">${stepLabels[i]}</div>
+        <div style="font-size:1.3em;font-weight:800;color:${g?GC[g]:'var(--text2)'}">${g||'-'}</div>
+      </div>`}).join('')}
+    </div>
+    <div class="detail-metrics">
+      ${metrics.map(m=>{const tip=MTIP[m.k];return`<div class="dm-item">
+        <div class="dm-top">
+          <span class="dm-label">${m.l}</span>
+          <span class="dm-value">${m.v}${m.g?`<span class="dm-grade" style="color:${GC[m.g]};background:${GB[m.g]}">${m.g}</span>`:''}</span>
+        </div>
+        ${tip?`<div class="dm-desc">${tip.analogy}</div>`:''}
+      </div>`}).join('')}
+    </div>
+    ${NEWS[t]?`<div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+      <div style="font-size:0.95em;font-weight:700;color:var(--accent2);margin-bottom:14px">최근 뉴스</div>
+      ${NEWS[t].map(n=>`<div class="news-article ${n.sentiment||'neutral'}" style="margin-bottom:12px">
+        <div class="news-article-date">${n.date}</div>
+        <div class="news-article-headline">${n.headline}</div>
+        ${n.detail?`<div class="news-article-detail">${n.detail}</div>`:''}
+        <div class="news-article-impact">${n.impact}</div>
+        <div class="news-easy-box">
+          <div class="news-easy-label">초등학생도 이해하는 설명</div>
+          ${n.easy}
+        </div>
+        ${n.source?`<div class="news-source">출처: <a href="${n.source}" target="_blank" rel="noopener">${n.sourceLabel||n.source}</a></div>`:''}
+      </div>`).join('')}
+    </div>`:''}
+  `;
+  document.getElementById('detailOverlay').classList.add('visible');
+}
+
+function closeDetail(){document.getElementById('detailOverlay').classList.remove('visible')}
+
+// ==================== API ====================
+function toggleApi(){document.getElementById('apiPanel').classList.toggle('visible')}
+
+function saveApiKey(){
+  const k=document.getElementById('apiKey').value.trim();
+  if(k){localStorage.setItem('fmp_api_key',k);document.getElementById('btnRefresh').style.display='inline-block';
+    document.getElementById('apiStatus').innerHTML='<span style="color:var(--green)">API 키 저장됨</span>'}
+  else{localStorage.removeItem('fmp_api_key');document.getElementById('btnRefresh').style.display='none'}
+}
+
+async function testApi(){
+  const k=document.getElementById('apiKey').value.trim()||localStorage.getItem('fmp_api_key');
+  if(!k){document.getElementById('apiStatus').innerHTML='<span style="color:var(--red)">API 키를 입력하세요</span>';return}
+  document.getElementById('apiStatus').innerHTML='<span class="spinner"></span> 테스트 중...';
+  try{
+    const r=await fetch(`https://financialmodelingprep.com/api/v3/profile/AAPL?apikey=${k}`);
+    const d=await r.json();
+    if(d[0]&&d[0].symbol){document.getElementById('apiStatus').innerHTML=`<span style="color:var(--green)">연결 성공! AAPL: $${d[0].price}</span>`}
+    else{document.getElementById('apiStatus').innerHTML='<span style="color:var(--red)">API 키가 유효하지 않습니다</span>'}
+  }catch(e){document.getElementById('apiStatus').innerHTML=`<span style="color:var(--red)">오류: ${e.message}</span>`}
+}
+
+async function refreshData(){
+  const k=localStorage.getItem('fmp_api_key');
+  if(!k){alert('API 키를 먼저 설정하세요');return}
+  const btn=document.getElementById('btnRefresh');
+  btn.disabled=true;btn.textContent='갱신 중...';
+  try{
+    for(const t of TICKERS){
+      const [profile,ratios,metrics]=await Promise.all([
+        fetch(`https://financialmodelingprep.com/api/v3/profile/${t}?apikey=${k}`).then(r=>r.json()),
+        fetch(`https://financialmodelingprep.com/api/v3/ratios-ttm/${t}?apikey=${k}`).then(r=>r.json()),
+        fetch(`https://financialmodelingprep.com/api/v3/key-metrics-ttm/${t}?apikey=${k}`).then(r=>r.json()),
+      ]);
+      const p=profile[0]||{};const rt=ratios[0]||{};const mt=metrics[0]||{};
+      if(p.price)DATA[t].price=+p.price.toFixed(2);
+      if(p.mktCap)DATA[t].mcap=(p.mktCap/1e12).toFixed(2)+'T';
+      if(rt.peRatioTTM)DATA[t].pe=+rt.peRatioTTM.toFixed(2);
+      if(rt.priceToSalesRatioTTM)DATA[t].ps=+rt.priceToSalesRatioTTM.toFixed(2);
+      if(rt.pegRatioTTM)DATA[t].peg=+rt.pegRatioTTM.toFixed(2);
+      if(mt.enterpriseValueOverEBITDATTM)DATA[t].evebitda=+mt.enterpriseValueOverEBITDATTM.toFixed(2);
+      if(rt.grossProfitMarginTTM)DATA[t].gm=+(rt.grossProfitMarginTTM*100).toFixed(2);
+      if(rt.operatingProfitMarginTTM)DATA[t].om=+(rt.operatingProfitMarginTTM*100).toFixed(2);
+      if(mt.freeCashFlowPerShareTTM&&p.price){
+        // FCF per share * shares = total FCF, approximate
+      }
+      await new Promise(r=>setTimeout(r,200)); // rate limit
+    }
+    // Re-analyze
+    TICKERS.forEach(t=>{analyses[t]=analyzeCompany(DATA[t])});
+    renderCards();renderHeatmap();renderRankings();
+    const now=new Date();
+    document.getElementById('freshnessText').textContent=`${now.toLocaleDateString('ko-KR')} ${now.toLocaleTimeString('ko-KR')} 갱신`;
+    document.getElementById('freshness').classList.remove('stale');
+  }catch(e){alert('데이터 갱신 오류: '+e.message)}
+  btn.disabled=false;btn.textContent='데이터 새로고침';
+}
+
+// keyboard
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});
+
+init();
+</script>
+</body>
+</html>
