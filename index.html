@@ -552,7 +552,7 @@ async function refreshData(){
     }
     // Re-analyze
     TICKERS.forEach(t=>{analyses[t]=analyzeCompany(DATA[t])});
-    renderCards();renderHeatmap();renderRankings();
+    renderCards();renderRankings();
     const now=new Date();
     document.getElementById('freshnessText').textContent=`${now.toLocaleDateString('ko-KR')} ${now.toLocaleTimeString('ko-KR')} 갱신`;
     document.getElementById('freshness').classList.remove('stale');
